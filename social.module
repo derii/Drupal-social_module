@@ -1,0 +1,139 @@
+<?php
+/**
+ * @file
+ * Contains base function for social module.
+ */
+
+/**
+ * Implements hook_menu().
+ */
+function social_menu() {
+	$items['social/insert'] = array(
+		'title' => 'Page for insert social icons',
+		'description' => 'Creating social profile icons',
+		'page callback' => 'drupal_get_form',
+		'page arguments' => array('social_insert_form'),
+		'access arguments' => array('administer site configuration'),
+	);
+	return $items;
+}
+
+/**
+ * Build form for insert data.
+ */
+function social_insert_form($form, $form_state) {
+	$form = array(
+		'#title' => 'Add icon',
+		'#type' => 'fieldset',
+		'#attributes' => array('class' => array('title')),
+		'#required' => TRUE,
+	);
+	$form['title'] = array(
+	    '#title' => 'Title',
+		'#type' => 'textfield',
+		'#maxlength' => 64,
+		'#required' => TRUE,
+	);
+	$form['link'] = array(
+		'#title' => 'Link',
+		'#type' => 'textfield',
+		'#maxlength' => 124,
+		'#required' => TRUE,
+	);
+	$form['icon'] = array(
+	    '#type' => 'managed_file',
+		'#title' => 'Image',
+		'#description' => 'Select file: jpg, jpeg, png, gif',
+		'#upload_location' => 'public://',
+		'#upload_validators' => array(
+			'file_validate_is_image' => array(),
+			'file_validate_extensions' => array('png gif jpg jpeg'),
+			'file_validate_size' => array(1 * 1024 * 1024),
+		),
+		'#default_value' => variable_get('social_myfilefid'),
+	);
+	$form['hover_icon'] = array(
+		'#type' => 'managed_file',
+		'#title' => 'Hover image',
+		'#description' => 'Select file: jpg, jpeg, png, gif',
+		'#upload_location' => 'public://',
+		'#upload_validators' => array(
+			'file_validate_is_image' => array(),
+			'file_validate_extensions' => array('png gif jpg jpeg'),
+			'file_validate_size' => array(1 * 1024 * 1024),
+		),
+		'#default_value' => variable_get('social_myfilefid2'),
+	);
+	$form['submit'] = array(
+		'#type' => 'submit',
+		'#value' => 'Submit',
+	);
+	return $form;
+}
+
+/**
+ * Validate for social_insert_form.
+ */
+function social_insert_form_validate($form, &$form_state) {
+	/*if (drupal_strlen($form_state['values']['title']) > 64) {
+		form_set_error('title', t('Field "@fieldname" must be less than @c chars.',
+		array('@fieldname' => t('Title'), '@c' => 64)));
+	}*/
+if(!preg_match("/^(http|https):\/\//Diu",$form_state['values']['link'])) {
+   form_set_error('link', t('"Link" do not validate this form.'));
+}
+}
+
+/**
+ * Submit for social_insert_form.
+ */
+function social_insert_form_submit($form, &$form_state) {
+	// Delete old file social icon
+	$old_file_fid = variable_get('social_myfilefid');
+	if ($old_file_fid && $old_file_fid != $form_state['values']['icon']) {
+		$old_file = file_load($old_file_fid);
+		file_usage_delete($old_file, 'social');
+		file_delete($old_file);
+	}
+ 
+	// Save new file social icon
+	$file = file_load($form_state['values']['icon']);
+	$file->status = FILE_STATUS_PERMANENT;
+	file_save($file);
+	file_usage_add($file, 'social', 'social', 0);
+	variable_set('social_myfilefid', $file->fid);
+ 
+	drupal_set_message('Image downloaded');  
+	
+	// Delete old file hover social icon
+	$old_file_fid = variable_get('social_myfilefid2');
+	if ($old_file_fid && $old_file_fid != $form_state['values']['icon']) {
+		$old_file = file_load($old_file_fid);
+		file_usage_delete($old_file, 'social');
+		file_delete($old_file);
+	}
+ 
+	// Save new file hover social icon
+	$file = file_load($form_state['values']['icon']);
+	$file->status = FILE_STATUS_PERMANENT;
+	file_save($file);
+	file_usage_add($file, 'social', 'social', 0);
+	variable_set('social_myfilefid2', $file->fid);
+ 
+	drupal_set_message('Image downloaded');
+	
+	$query = db_insert('social_table')
+		->fields(array(
+		  'title'		 => $form_state['values']['title'],
+		  'link' 		 => $form_state['values']['link'],
+		  'icon'		 => $form_state['values']['icon'],
+		  'hover_icon'   => $form_state['values']['hover_icon'],
+    ))
+    ->execute();
+	if ($query > 0) {
+		drupal_set_message(t('Data has been successfully sent.'));
+	}
+	else {
+		drupal_set_message(t("Data hasn't been sent."), 'error');
+	}
+}

@@ -1,0 +1,49 @@
+<?php
+/**
+ * @file
+ * Installation file for social database module.
+ */
+
+/**
+ * Implements hook_schema().
+ */
+function social_schema() {
+	$schema['social_table'] = array(
+		'description' => 'Custom table from social database module.',
+		'fields' => array(
+			'id' => array(
+				'description' => 'The primary identifier for a record.',
+				'type' => 'serial',
+				'unsigned' => TRUE,
+				'not null' => TRUE,
+			),
+			'title' => array(
+				'type' => 'varchar',
+				'length' => 64,
+				'not null' => TRUE,
+				'description' => 'Social network title',
+				'default' => '',
+			),
+			'link' => array(
+				'type' => 'varchar',
+				'length' => 128,
+				'not null' => TRUE,
+				'description' => 'Link'
+			),
+			'icon' => array(
+				'type' => 'varchar',
+				'length' => 256,
+				'not null' => TRUE,
+				'description' => 'Icon'
+			),
+			'hover_icon' => array(
+				'type' => 'varchar',
+				'length' => 256,
+				'not null' => TRUE,
+				'description' => 'Hover icon'
+			),
+		),
+		'primary key' => array('id'),
+	);
+	return $schema;
+}
