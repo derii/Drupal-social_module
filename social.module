@@ -8,53 +8,164 @@
  * Implements hook_menu().
  */
 function social_menu() {
-	$items['social/insert'] = array(
+	$items['admin/config/administration/social'] = array(
 		'title' => 'Page for insert social icons',
 		'description' => 'Creating social profile icons',
+		'page callback' => 'social_list',
+		'page arguments' => array('social_insert_form'),
+		'access arguments' => array('administer site configuration'),
+		'type' => MENU_NORMAL_ITEM,
+	);
+	$items['admin/config/administration/social/list'] = array(
+		'title' => 'Social Icons List',
+		'description' => 'List social icons',
+		'type' => MENU_DEFAULT_LOCAL_TASK,
+		'weight' => 0,
+	);
+	$items['admin/config/administration/social/add'] = array(
+		'title' => 'Add Social Icons',
+		'description' => 'Setting social icons',
 		'page callback' => 'drupal_get_form',
 		'page arguments' => array('social_insert_form'),
 		'access arguments' => array('administer site configuration'),
+		'type' => MENU_LOCAL_TASK,
+		'weight' => 1,
+	);
+	$items['admin/config/administration/social/%social/edit'] = array(
+		'title' => 'Edit Social Icons',
+		'description' => 'Setting social icons',
+		'page callback' => 'drupal_get_form',
+		'page arguments' => array('social_insert_form', 4),
+		'access arguments' => array('administer site configuration'),
+		'type' => MENU_CALLBACK,
+	);
+	$items['admin/config/administration/social/%social/delete'] = array(
+		'title' => 'Delete Social Icons',
+		'description' => 'Setting social icons',
+		'page callback' => 'drupal_get_form',
+		'page arguments' => array('social_delete_form', 4),
+		'access arguments' => array('administer site configuration'),
+		'type' => MENU_CALLBACK,
 	);
 	return $items;
 }
 
 /**
- * Build form for insert data.
+ * Implements hook_entity_info()
  */
-function social_insert_form($form, $form_state) {
+function social_entity_info() {
+	return array(
+		'social' => array(                               
+			'label' => 'Social icons',
+			'entity class' => 'Entity',
+			'controller class' => 'EntityAPIController',
+			'base table' => 'social_table',
+			'entity keys' => array(
+				'id' => 'id',
+				'label' => 'title'
+			),
+			'admin ui' => array(
+				'path' => 'admin/config/administration/social'
+			),
+			'access callback' => 'social_access',
+			'module' => 'social',
+		),
+	);
+}
+
+/**
+ * Checking permissions
+ */
+function social_access($op, $entity, $account = NULL, $entity_type = 'social') {
+	return user_access('administer site configuration');
+}
+
+/**
+ * Returns icon by ID
+ */
+function social_load($id) {
+	$result = entity_load('social', array($id));
+	return $result ? reset($result) : FALSE;
+}
+
+/**
+ * Function return array for theme_image()
+ * @param $fid files
+ *
+ */
+function _image_array($fid) {
+	return array(
+		'path' => file_load($fid)->uri,
+		'width' => '50px',
+		'height' => '50px',
+		'attributes' => array('class' => 'some-img', 'id' => 'my-img'),
+	);
+}
+
+/**
+ * Reslisation function social_list()
+ * Callback icon list
+ */
+function social_list() {
+	$social = db_select('social_table', 'si')
+		->fields('si', array('id'))
+		->orderBy('si.id')
+		->execute();
+	$header = array('Title', 'Link', 'Icon', 'Hover Icon', 'Actions');
+	$rows = array();
+
+	foreach ($social as $id) {
+		$entity = social_load($id->id);
+		$actions = array(
+			l('edit', 'admin/config/administration/social/' . $id->id . '/edit'),
+			l('delete', 'admin/config/administration/social/' . $id->id . '/delete', array('query' => array('token' => drupal_get_token('social-' . $id->id)))),
+		);
+		$rows[] = array(
+			$entity->title,
+			$entity->link,
+			theme_image(_image_array($entity->icon)),
+			theme_image(_image_array($entity->hover_icon)),
+			implode(' | ', $actions)
+		);
+	}
+	$output = theme('table', array('header' => $header, 'rows' => $rows));
+	return $output;
+}
+
+/**
+ * Implements hook_form()
+ */
+function social_insert_form($form, &$form_state, $social, $op = 'edit') {
 	$form = array(
 		'#title' => 'Add icon',
 		'#type' => 'fieldset',
-		'#attributes' => array('class' => array('title')),
-		'#required' => TRUE,
+	);
+	dpm($social->id);
+	$form['id'] = array(
+		'#type' => 'value',
+		'#value' => isset($social->id) ?  $social->id : FALSE,
 	);
 	$form['title'] = array(
-	    '#title' => 'Title',
+		'#title' => 'Title',
 		'#type' => 'textfield',
 		'#maxlength' => 64,
+		'#size' => 60,
 		'#required' => TRUE,
+		'#attributes' => array('class' => array('title')),
+		'#default_value' => isset($social->title) ? $social->title : '',
 	);
 	$form['link'] = array(
 		'#title' => 'Link',
 		'#type' => 'textfield',
 		'#maxlength' => 124,
 		'#required' => TRUE,
+		'#atributes' => array('class' => array('link')),
+		'#description' => 'Input link in format "http://" or "https://".',
+		'#default_value' => isset($social->link) ? $social->link : '',
 	);
 	$form['icon'] = array(
-	    '#type' => 'managed_file',
-		'#title' => 'Image',
-		'#description' => 'Select file: jpg, jpeg, png, gif',
-		'#upload_location' => 'public://',
-		'#upload_validators' => array(
-			'file_validate_is_image' => array(),
-			'file_validate_extensions' => array('png gif jpg jpeg'),
-			'file_validate_size' => array(1 * 1024 * 1024),
-		),
-		'#default_value' => variable_get('social_myfilefid'),
-	);
-	$form['hover_icon'] = array(
+		'#title' => 'Upload icon',
 		'#type' => 'managed_file',
-		'#title' => 'Hover image',
 		'#description' => 'Select file: jpg, jpeg, png, gif',
 		'#upload_location' => 'public://',
 		'#upload_validators' => array(
@@ -62,78 +173,108 @@ function social_insert_form($form, $form_state) {
 			'file_validate_extensions' => array('png gif jpg jpeg'),
 			'file_validate_size' => array(1 * 1024 * 1024),
 		),
-		'#default_value' => variable_get('social_myfilefid2'),
+		'#default_value' => isset($social->icon) ? $social->icon : '',
+  );
+	$form['hover_icon'] = array(
+		'#title' => 'Upload hover icon',
+		'#type' => 'managed_file',
+		'#description' => 'Select file: jpg, jpeg, png, gif',
+		'#upload_location' => 'public://',
+		'#upload_validators' => array(
+			'file_validate_is_image' => array(),
+			'file_validate_extensions' => array('png gif jpg jpeg'),
+			'file_validate_size' => array(1 * 1024 * 1024),
+		),
+		'#default_value' => isset($social->hover_icon) ? $social->hover_icon : '',
 	);
 	$form['submit'] = array(
 		'#type' => 'submit',
-		'#value' => 'Submit',
+		'#value' => 'Submit'
 	);
 	return $form;
 }
 
 /**
- * Validate for social_insert_form.
+ * Implements hook_forms_validate().
  */
-function social_insert_form_validate($form, &$form_state) {
-	/*if (drupal_strlen($form_state['values']['title']) > 64) {
-		form_set_error('title', t('Field "@fieldname" must be less than @c chars.',
-		array('@fieldname' => t('Title'), '@c' => 64)));
-	}*/
-if(!preg_match("/^(http|https):\/\//Diu",$form_state['values']['link'])) {
-   form_set_error('link', t('"Link" do not validate this form.'));
-}
+function social_insert_form_validate($form, $form_state) {
+
+  if (!preg_match('/^(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-]*)*\/?$/', $form_state['values']['link'])) {
+    form_set_error('link', t('"Link" do not begin "http://" or "https://".'));
+  }
+
+  $validators = array(
+     'file_validate_is_image' => array(), 
+  );
+  $icon = file_save_upload('icon', $validators);
+
+  $hover_icon = file_save_upload('hover_icon', $validators);
+   $form_state['values']['hover_icon'] = $hover_icon;
 }
 
 /**
- * Submit for social_insert_form.
+ * Implements hook_form_submit()
  */
 function social_insert_form_submit($form, &$form_state) {
-	// Delete old file social icon
-	$old_file_fid = variable_get('social_myfilefid');
-	if ($old_file_fid && $old_file_fid != $form_state['values']['icon']) {
-		$old_file = file_load($old_file_fid);
-		file_usage_delete($old_file, 'social');
-		file_delete($old_file);
+	$icon = file_load($form_state['values']['icon']);
+	$icon = file_save($icon);
+	dpm($form_state['values']);
+	if ($form_state['values']['id']) {
+		$social = social_load($form_state['values']['id']);
+		$social->title = $form_state['values']['title'];
+		$social->link = $form_state['values']['link'];
+		$social->icon = $form_state['values']['icon'];
+		$social->hover_icon = $form_state['values']['hover_icon'];
+		$social = entity_save('social', $social);
+	} else {
+		$values = array(
+			'title' => $form_state['values']['title'],
+			'link' => $form_state['values']['link'],
+			'icon' => $form_state['values']['icon'],
+			'hover_icon' => $form_state['values']['hover_icon'],
+		);
+		$social = entity_create('social', $values);
+		$social = entity_save('social', $social);
 	}
- 
-	// Save new file social icon
-	$file = file_load($form_state['values']['icon']);
-	$file->status = FILE_STATUS_PERMANENT;
-	file_save($file);
-	file_usage_add($file, 'social', 'social', 0);
-	variable_set('social_myfilefid', $file->fid);
- 
-	drupal_set_message('Image downloaded');  
-	
-	// Delete old file hover social icon
-	$old_file_fid = variable_get('social_myfilefid2');
-	if ($old_file_fid && $old_file_fid != $form_state['values']['icon']) {
-		$old_file = file_load($old_file_fid);
-		file_usage_delete($old_file, 'social');
-		file_delete($old_file);
+	if ($social) {
+		drupal_set_message(t('Form submit'));
 	}
- 
-	// Save new file hover social icon
-	$file = file_load($form_state['values']['icon']);
-	$file->status = FILE_STATUS_PERMANENT;
-	file_save($file);
-	file_usage_add($file, 'social', 'social', 0);
-	variable_set('social_myfilefid2', $file->fid);
- 
-	drupal_set_message('Image downloaded');
-	
-	$query = db_insert('social_table')
-		->fields(array(
-		  'title'		 => $form_state['values']['title'],
-		  'link' 		 => $form_state['values']['link'],
-		  'icon'		 => $form_state['values']['icon'],
-		  'hover_icon'   => $form_state['values']['hover_icon'],
-    ))
-    ->execute();
-	if ($query > 0) {
-		drupal_set_message(t('Data has been successfully sent.'));
+	$form_state['redirect'] = 'admin/config/administration/social/list';
+}
+
+/**
+ * Realised delete entity
+ */
+function social_delete_form($form, &$form_state, $social) {
+	$form['delete']= array(
+		'#title' => 'Delete Icons',
+		'#type' => 'fieldset',
+	);
+	$form['id'] = array(
+		'#type' => 'value',
+		'#value' => $social->id
+	);
+	$form['delete']['back'] = array(
+		'#type' => 'markup',
+		'#markup' => l('Return back', 'admin/config/administration/social/list')
+	);
+	$form['delete']['submit'] = array(
+		'#type' => 'submit',
+		'#value' => 'Delete',
+		'#submit' => array('social_delete_form_submit'),
+   // '#validate' => TRUE,
+
+	);
+	return $form;
+}
+
+/**
+ * Function delete entity social_icons
+ */
+function social_delete_form_submit($form, &$form_state) {
+	$delete = entity_delete('social', $form_state['values']['id']);
+	if ($delete) {
+		drupal_set_message(t('Icons delete'));
 	}
-	else {
-		drupal_set_message(t("Data hasn't been sent."), 'error');
-	}
+	$form_state['redirect'] = 'admin/config/administration/social/list';
 }

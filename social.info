@@ -1,4 +1,7 @@
-name = Social module
+name = Social
 description = This module show social profiles icons
 core = 7.x
-version = 7.x-1.x-dev
+package = Derii Soft Group
+files[] = social.module
+files[] = social.install
+configure = admin/config/administration/social

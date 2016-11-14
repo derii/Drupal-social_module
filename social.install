@@ -9,7 +9,7 @@
  */
 function social_schema() {
 	$schema['social_table'] = array(
-		'description' => 'Custom table from social database module.',
+		'description' => 'Custom table from social module.',
 		'fields' => array(
 			'id' => array(
 				'description' => 'The primary identifier for a record.',
@@ -31,19 +31,22 @@ function social_schema() {
 				'description' => 'Link'
 			),
 			'icon' => array(
-				'type' => 'varchar',
-				'length' => 256,
+				'type' => 'int',
+				'length' => 8,
 				'not null' => TRUE,
 				'description' => 'Icon'
 			),
 			'hover_icon' => array(
-				'type' => 'varchar',
-				'length' => 256,
+				'type' => 'int',
+				'length' => 8,
 				'not null' => TRUE,
 				'description' => 'Hover icon'
 			),
 		),
 		'primary key' => array('id'),
+		'indexes' => array(
+			'title' => array('title')
+		),
 	);
 	return $schema;
 }
